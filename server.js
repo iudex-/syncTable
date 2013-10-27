@@ -1,8 +1,15 @@
 Array.prototype.remove = function(e) {
-  for (var i = 0; i < this.length; i++) {
-    if (e == this[i]) { return this.splice(i, 1); }
-  }
+	for (var i = 0; i < this.length; i++) {
+		if (e == this[i]) { return this.splice(i, 1); }
+	}
 };
+Object.prototype.values = function(x) {
+	var l = [],obj=this;
+	Object.keys(this).forEach(function(v) {
+		l.push(obj[v]);
+	});
+	return l;
+}
 
 var app = require('http').createServer(function  (req, res) {
 	fs.readFile(__dirname + '/foo.html', 'utf8', function (err, data) {
@@ -15,6 +22,7 @@ var app = require('http').createServer(function  (req, res) {
 	});
 });
 
+var DEBUG = 2;
 var sanitize = require('validator').sanitize;
 var fs = require('fs');
 var io = require('socket.io').listen(app);
@@ -39,13 +47,6 @@ var checkId = function(id) {
 	y=parseInt(x[1], 10), x=parseInt(x[0], 10);
 	if(y>=0 && y<26 && x>=0 && x<8) return x+":"+y;
 }
-var objValues = function(obj) {
-	var l = [];
-	Object.keys(obj).forEach(function(v) {
-		if(obj.hasOwnProperty(v)) l.push(obj[v]);
-	});
-	return l;
-}
 var lockexists = function(obj, id) {
 	var b = false;
 	Object.keys(obj).forEach(function(v) {
@@ -67,7 +68,7 @@ io.sockets.on('connection', function (cc) {
 		
 		if(rooms[room]) {
 			cc.emit("initialupdate", rooms[room]["data"]);
-			cc.emit("initiallocks", objValues(rooms[room]["locks"]) );
+			cc.emit("initiallocks", rooms[room]["locks"].values() );
 		}
 	});
 	cc.on("lock", function(id){
@@ -78,11 +79,13 @@ io.sockets.on('connection', function (cc) {
 		if( lockexists( rooms[room]["locks"],id ) ) return;  // dont overwrite locks
 		rooms[room]["locks"][cc.id] = id;
 		cc.broadcast.to(room).emit("lock", id); //emit to 'room' except this socket
+		if(DEBUG>1) console.log(rooms[room]["locks"]);
 	});
 	cc.on("unlock", function(id){
 		if(rooms[room]["locks"][cc.id]!=id) return;
 		delete rooms[room]["locks"][cc.id]
 		cc.broadcast.to(room).emit("unlock", id);
+		if(DEBUG>1) console.log(rooms[room]["locks"]);
 	});
 	cc.on("update", function(data){
 		if(rooms[room]["locks"][cc.id]!=data.id) return;
@@ -92,11 +95,13 @@ io.sockets.on('connection', function (cc) {
 		rooms[room]["data"][data.id] = data.data;
 		cc.broadcast.to(room).emit("update", data);
 		delete rooms[room]["locks"][cc.id]; // free lock
+		if(DEBUG>1) console.log(rooms[room]["locks"]);
 	});
 	cc.on('disconnect',function(){
 		if(rooms[room]["locks"][cc.id]) {
 			cc.broadcast.to(room).emit("unlock", rooms[room]["locks"][cc.id]);
 			delete rooms[room]["locks"][cc.id];
+			if(DEBUG>1) console.log(rooms[room]["locks"]);
 		}
 		io.sockets.in(room).emit( 'clients', io.sockets.clients(room).length-1 );
 		console.log("Clients in \""+room+"\": ", io.sockets.clients(room).length-1, "\t", new Date() );
