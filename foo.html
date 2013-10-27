@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>syncTable</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<!-- <link href='http://fonts.googleapis.com/css?family=Piedra' rel='stylesheet' type='text/css'> -->
+<style type="text/css">
+body {
+	margin: 0;
+	padding: 0;
+	font-family: sans-serif;
+}
+
+table {
+	width: 100%;
+	border-spacing: 0px;
+}
+tr td:first-child { border-left: 1px solid #ccc; }
+tr:first-child td { border-top: 1px solid #ccc; }
+td {
+	border: 1px solid #ccc;
+	border-top: 0;
+	border-left: 0;
+	text-align: center;
+	
+	height: 19px; /* aaargh Firefox! */
+	empty-cells: show;
+}
+.lock {
+	/* box-shadow: inset 0px 0px 13px 2px rgba(255, 0, 0, .5); */
+	background: #eee;
+}
+</style>
+</head>
+<body>
+<div id="container">
+
+<table>
+<tbody id="tbl">
+<tr>
+	<td id="0:0" contenteditable="true">Zeit</td>
+	<td id="1:0" contenteditable="true">Montag</td>
+	<td id="2:0" contenteditable="true">Dienstag</td>
+	<td id="3:0" contenteditable="true">Mittwoch</td>
+	<td id="4:0" contenteditable="true">Donnerstag</td>
+	<td id="5:0" contenteditable="true">Freitag</td>
+	<td id="6:0" contenteditable="true">Samstag</td>
+	<td id="7:0" contenteditable="true">Sonntag</td>
+</tr>
+
+
+</tbody>
+</table>
+
+</div>
+<script src="./socket.io/socket.io.js"></script>
+<script>
+var addrow = function(n){
+	var str="",i;
+	for(i=0;i<n;i++) {
+		str += '\
+		<tr> \
+			<td id="0:'+X+'" contenteditable="true"></td> \
+			<td id="1:'+X+'" contenteditable="true"></td> \
+			<td id="2:'+X+'" contenteditable="true"></td> \
+			<td id="3:'+X+'" contenteditable="true"></td> \
+			<td id="4:'+X+'" contenteditable="true"></td> \
+			<td id="5:'+X+'" contenteditable="true"></td> \
+			<td id="6:'+X+'" contenteditable="true"></td> \
+			<td id="7:'+X+'" contenteditable="true"></td> \
+		</tr>';
+		X++
+	}
+	tbl.innerHTML += str;
+};
+////////////////////////////////////////////////////////////////////////
+var setTdAction = function(e){
+	e.addEventListener('focus', tdFocus ,false);
+	e.addEventListener('blur', send ,false);
+};
+var tdFocus = function(e) {
+		CACHE=this.innerHTML
+		setLock(this.id);
+}
+////////////////////////////////////////////////////////////////////////
+var send = function(e) { // and unlock
+	if(CACHE!=this.innerHTML && CACHE!=undefined) {
+		//console.log("send ",this.id, this.innerHTML, "cache: ",CACHE);
+		socket.emit("update", {"id":this.id,"data":this.innerHTML});
+		CACHE = undefined;
+	} else if(CACHE!=undefined) {
+		console.log("send unlock ",this.id);
+		socket.emit("unlock", this.id);
+		CACHE = undefined;
+		this.blur();
+	}
+}
+var setLock = function(id) {
+	if(LOCK!=id) {
+		console.log("send lock ",id);
+		socket.emit("lock", id);
+		//socket.emit("unlock", LOCK);
+		LOCK = id;
+	}
+}
+////////////////////////////////////////////////////////////////////////
+var update = function(data) {
+	console.log("update ",data);
+	document.getElementById(data.id).innerHTML = data.data;
+	unlock(data.id);
+}
+var unlock = function(id){
+	if(!id) return;
+	var e = document.getElementById(id);
+	console.log("unlock ",id,e);
+	e.setAttribute("contenteditable", "true");
+	if(e.hasAttribute("class")) e.setAttribute("class", "");
+}
+var lock = function(id){
+	console.log("lock", id);
+	var e = document.getElementById(id);
+	e.setAttribute("contenteditable", "false");
+	e.setAttribute("class", "lock");
+}
+////////////////////////////////////////////////////////////////////////
+
+var CACHE="", LOCK="", X=1,tbl = document.getElementById("tbl");
+addrow(25);
+[].forEach.call(document.getElementsByTagName("td"),setTdAction);
+
+//var socket = new io.connect(location.host, {resource: 'whiteboard/socket.io'});
+var socket = new io.connect(location.host, {});
+socket.on('connect',function() {
+	var room = window.location.pathname.substr(1);
+	socket.emit('room', room);
+	document.title += " "+room;
+	console.log('Client has connected to the server! in room ',room);
+});
+socket.on('initialupdate', function(data){
+	Object.keys(data).forEach(function(id) {
+		if(data.hasOwnProperty(id)) {
+			update({"id":id,"data":data[id]});
+		}
+	});
+});
+socket.on('initiallocks', function(data){ data.forEach(lock) });
+socket.on('update', update);
+socket.on('lock', lock);
+socket.on('unlock', unlock);
+</script>
+</body>
+</html>
