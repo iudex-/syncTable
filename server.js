@@ -38,8 +38,18 @@ app.listen(port);
 io.set('log level', 1);
 
 var clients = 0;
+var BackupTimeout, BackupCounter = 0;
 
 var rooms = {}; // store 
+if(fs.existsSync('backup.json')) {
+	rooms = JSON.parse(fs.readFileSync('backup.json'));
+	Object.keys(rooms).forEach(function(room){
+		rooms[room]['locks'] = {};
+	});
+	console.log("### loaded Backup! ###", "\t", new Date());
+	if(DEBUG>3) console.log(rooms);
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 var checkId = function(id) {
@@ -53,6 +63,14 @@ var lockexists = function(obj, id) {
 		if(id==obj[v]) b = true;
 	});
 	return b;
+}
+var backup = function() {
+	BackupCounter = 0;
+	if(DEBUG>2) console.log('### Backup started! ###',"\t" ,new Date());
+	fs.writeFile('backup.json', JSON.stringify(rooms), function (err) {
+		if (err) throw err;
+		if(DEBUG>1) console.log('### Backup created! ###',"\t" ,new Date());
+	});
 }
 ////////////////////////////////////////////////////////////////////////
 
@@ -79,29 +97,38 @@ io.sockets.on('connection', function (cc) {
 		if( lockexists( rooms[room]["locks"],id ) ) return;  // dont overwrite locks
 		rooms[room]["locks"][cc.id] = id;
 		cc.broadcast.to(room).emit("lock", id); //emit to 'room' except this socket
-		if(DEBUG>1) console.log(rooms[room]["locks"]);
+		if(DEBUG>2) console.log(rooms[room]["locks"]);
 	});
 	cc.on("unlock", function(id){
 		if(rooms[room]["locks"][cc.id]!=id) return;
 		delete rooms[room]["locks"][cc.id]
 		cc.broadcast.to(room).emit("unlock", id);
-		if(DEBUG>1) console.log(rooms[room]["locks"]);
+		if(DEBUG>2) console.log(rooms[room]["locks"]);
 	});
 	cc.on("update", function(data){
 		if(rooms[room]["locks"][cc.id]!=data.id) return;
 		//data.data = sanitize(data.data).entityEncode();
 		data.data = sanitize(data.data).escape();
 		data.data = sanitize(data.data).xss();
+		data.data = data.data.replace(/&lt;.+?&gt;/g, "").replace(/&amp;nbsp;/g, " ");  // hide shit
 		rooms[room]["data"][data.id] = data.data;
 		cc.broadcast.to(room).emit("update", data);
 		delete rooms[room]["locks"][cc.id]; // free lock
-		if(DEBUG>1) console.log(rooms[room]["locks"]);
+		if(DEBUG>2) console.log(rooms[room]["locks"]);
+		
+		if(BackupTimeout) {
+			clearTimeout(BackupTimeout);
+			BackupCounter++;
+		}
+		if(BackupCounter>49) backup();
+			else BackupTimeout = setTimeout(backup, 10*1000);
+		
 	});
 	cc.on('disconnect',function(){
 		if(rooms[room]["locks"][cc.id]) {
 			cc.broadcast.to(room).emit("unlock", rooms[room]["locks"][cc.id]);
 			delete rooms[room]["locks"][cc.id];
-			if(DEBUG>1) console.log(rooms[room]["locks"]);
+			if(DEBUG>2) console.log(rooms[room]["locks"]);
 		}
 		io.sockets.in(room).emit( 'clients', io.sockets.clients(room).length-1 );
 		console.log("Clients in \""+room+"\": ", io.sockets.clients(room).length-1, "\t", new Date() );
