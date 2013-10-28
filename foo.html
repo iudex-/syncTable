@@ -30,9 +30,35 @@ td {
 	/* box-shadow: inset 0px 0px 13px 2px rgba(255, 0, 0, .5); */
 	background: #eee;
 }
+#block {
+	position: fixed;
+	top:0; left:0; right:0; bottom:0;
+	background: rgba(0,0,0,.7);
+	text-align: center;
+	color: #fff;
+	z-index: 100;
+	height: 100%;
+	width: 100%;
+	font-size: 30px;
+	font-weight: bolder;
+	cursor: default;
+}
+#innerblock {
+	margin: auto; /* center magic */
+	position: absolute;
+	top: 0; left: 0; bottom: 0; right: 0;
+	height: 75px;
+	text-align: center;
+}
+#block a,  #block a:visited {
+	color: #fff;
+}
 </style>
 </head>
 <body>
+<div id="block">
+	<div id="innerblock">connecting...</div>
+</div>
 <div id="container">
 
 <table>
@@ -124,7 +150,12 @@ var lock = function(id){
 }
 ////////////////////////////////////////////////////////////////////////
 
-var CACHE="", LOCK="", X=1,tbl = document.getElementById("tbl");
+var CACHE="",
+	LOCK="",
+	X=1,
+	tbl = document.getElementById("tbl"),
+	blockMsg = document.getElementById("block");
+	
 addrow(25);
 [].forEach.call(document.getElementsByTagName("td"),setTdAction);
 
@@ -137,6 +168,7 @@ socket.on('connect',function() {
 	console.log('Client has connected to the server! in room ',room);
 });
 socket.on('initialupdate', function(data){
+	blockMsg.style.display = "none";
 	Object.keys(data).forEach(function(id) {
 		if(data.hasOwnProperty(id)) {
 			update({"id":id,"data":data[id]});
@@ -147,6 +179,10 @@ socket.on('initiallocks', function(data){ data.forEach(lock) });
 socket.on('update', update);
 socket.on('lock', lock);
 socket.on('unlock', unlock);
+socket.on('disconnect', function (){
+	blockMsg.childNodes[1].innerHTML = 'connection lost'; //'<br><br><a href="./">reload</a>';
+	blockMsg.style.display = "";
+});
 </script>
 </body>
 </html>
