@@ -110,9 +110,7 @@ var tdFocus = function(e) {
 }
 ////////////////////////////////////////////////////////////////////////
 var send = function(e) { // and unlock
-	console.log("send");
 	if(CACHE!=this.innerHTML && CACHE!=undefined) {
-		//console.log("send ",this.id, this.innerHTML, "cache: ",CACHE);
 		socket.emit("update", {"id":this.id,"data":this.innerHTML});
 		CACHE = undefined;
 		this.blur();
@@ -140,7 +138,7 @@ var update = function(data) {
 var unlock = function(id){
 	if(!id) return;
 	var e = document.getElementById(id);
-	console.log("unlock ",id,e);
+	console.log("unlock ",id);
 	e.setAttribute("contenteditable", "true");
 	if(e.hasAttribute("class")) e.setAttribute("class", "");
 }
@@ -164,16 +162,14 @@ addrow(25);
 
 
 document.addEventListener('keydown', function (event) { // http://jsbin.com/owavu3/1/edit
-	console.log(event, event.target, event.which)
 	var esc = event.which == 27,
 		nl = event.which == 13,
 		el = event.target;
-	if ( el.nodeName == 'TD' ) {
-		if (esc) {
+	if (input = el.nodeName == 'TD') {
+		if (esc) {			
 			document.execCommand('undo'); // restore state
 			el.blur();
 		} else if (nl) {
-			//save
 			el.blur();
 			event.preventDefault();
 		}
