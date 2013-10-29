@@ -25,17 +25,22 @@ var app = require('http').createServer(function  (req, res) {
 var DEBUG = 3;
 var sanitize = require('validator').sanitize;
 var fs = require('fs');
+
 var io = require('socket.io').listen(app);
 io.configure(function () {
-	io.set("transports", ['websocket', 'xhr-polling']);
-	//io.set("transports", ['xhr-polling']);
-	io.set("polling duration", 10);
+	//io.set("transports", ['websocket', 'xhr-polling']);
+	//io.set("polling duration", 10);
+	
+	// production settings
+	io.enable('browser client minification');	// send minified client
+	io.enable('browser client etag');			// apply etag caching logic based on version number
+	io.enable('browser client gzip');			// gzip the file
+	io.set('log level', 1);						// reduce logging
+	io.set('transports', ['websocket', 'htmlfile', 'xhr-polling', 'jsonp-polling']);
 });
-
 
 var port = process.env.PORT || parseInt(process.argv[2]) || 1337;
 app.listen(port);
-io.set('log level', 1);
 
 var clients = 0;
 var BackupTimeout, BackupCounter = 0;
