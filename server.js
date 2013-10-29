@@ -22,7 +22,7 @@ var app = require('http').createServer(function  (req, res) {
 	});
 });
 
-var DEBUG = 2;
+var DEBUG = 3;
 var sanitize = require('validator').sanitize;
 var fs = require('fs');
 var io = require('socket.io').listen(app);
@@ -101,7 +101,7 @@ io.sockets.on('connection', function (cc) {
 	});
 	cc.on("unlock", function(id){
 		if(rooms[room]["locks"][cc.id]!=id) return;
-		delete rooms[room]["locks"][cc.id]
+		delete rooms[room]["locks"][cc.id];
 		cc.broadcast.to(room).emit("unlock", id);
 		if(DEBUG>2) console.log(rooms[room]["locks"]);
 	});
@@ -125,10 +125,15 @@ io.sockets.on('connection', function (cc) {
 		
 	});
 	cc.on('disconnect',function(){
-		if(rooms[room]["locks"][cc.id]) {
-			cc.broadcast.to(room).emit("unlock", rooms[room]["locks"][cc.id]);
-			delete rooms[room]["locks"][cc.id];
-			if(DEBUG>2) console.log(rooms[room]["locks"]);
+		try {
+			console.log("!!!disconnect");
+			if(rooms[room]["locks"][cc.id]) {
+				cc.broadcast.to(room).emit("unlock", rooms[room]["locks"][cc.id]);
+				delete rooms[room]["locks"][cc.id];
+				if(DEBUG>2) console.log(rooms[room]["locks"]);
+			}
+		} catch(e) {
+			console.log("!!!disconnect error", room, e);
 		}
 		io.sockets.in(room).emit( 'clients', io.sockets.clients(room).length-1 );
 		console.log("Clients in \""+room+"\": ", io.sockets.clients(room).length-1, "\t", new Date() );
