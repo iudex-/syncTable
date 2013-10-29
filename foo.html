@@ -178,7 +178,7 @@ document.addEventListener('keydown', function (event) { // http://jsbin.com/owav
 
 
 if(window.location.pathname.substr(1,11)=="wochenplan/") {
-	socket = new io.connect(location.host, {resource: 'whiteboard/socket.io'});
+	socket = new io.connect(location.host, {resource: 'wochenplan/socket.io'});
 } else {
 	socket = new io.connect(location.host, {});
 }
