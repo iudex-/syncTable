@@ -110,10 +110,12 @@ var tdFocus = function(e) {
 }
 ////////////////////////////////////////////////////////////////////////
 var send = function(e) { // and unlock
+	console.log("send");
 	if(CACHE!=this.innerHTML && CACHE!=undefined) {
 		//console.log("send ",this.id, this.innerHTML, "cache: ",CACHE);
 		socket.emit("update", {"id":this.id,"data":this.innerHTML});
 		CACHE = undefined;
+		this.blur();
 	} else if(CACHE!=undefined) {
 		console.log("send unlock ",this.id);
 		socket.emit("unlock", this.id);
@@ -153,14 +155,40 @@ var lock = function(id){
 var CACHE="",
 	LOCK="",
 	X=1,
+	socket,
 	tbl = document.getElementById("tbl"),
 	blockMsg = document.getElementById("block");
 	
 addrow(25);
 [].forEach.call(document.getElementsByTagName("td"),setTdAction);
 
-//var socket = new io.connect(location.host, {resource: 'whiteboard/socket.io'});
-var socket = new io.connect(location.host, {});
+
+document.addEventListener('keydown', function (event) { // http://jsbin.com/owavu3/1/edit
+	console.log(event, event.target, event.which)
+	var esc = event.which == 27,
+		nl = event.which == 13,
+		el = event.target;
+	if ( el.nodeName == 'TD' ) {
+		if (esc) {
+			document.execCommand('undo'); // restore state
+			el.blur();
+		} else if (nl) {
+			//save
+			el.blur();
+			event.preventDefault();
+		}
+	}
+}, true);
+
+
+if(window.location.pathname.substr(1,11)=="wochenplan/") {
+	socket = new io.connect(location.host, {resource: 'whiteboard/socket.io'});
+} else {
+	socket = new io.connect(location.host, {});
+}
+
+////////////////////////////////////////////////////////////////////////
+
 socket.on('connect',function() {
 	var room = window.location.pathname.substr(1);
 	socket.emit('room', room);
@@ -168,12 +196,12 @@ socket.on('connect',function() {
 	console.log('Client has connected to the server! in room ',room);
 });
 socket.on('initialupdate', function(data){
-	blockMsg.style.display = "none";
 	Object.keys(data).forEach(function(id) {
 		if(data.hasOwnProperty(id)) {
 			update({"id":id,"data":data[id]});
 		}
 	});
+	blockMsg.style.display = "none";
 });
 socket.on('initiallocks', function(data){ data.forEach(lock) });
 socket.on('update', update);
@@ -181,6 +209,10 @@ socket.on('lock', lock);
 socket.on('unlock', unlock);
 socket.on('disconnect', function (){
 	blockMsg.childNodes[1].innerHTML = 'connection lost'; //'<br><br><a href="./">reload</a>';
+	blockMsg.style.display = "";
+});
+socket.on('connect_failed', function() {
+	blockMsg.childNodes[1].innerHTML = 'connection failed';
 	blockMsg.style.display = "";
 });
 </script>
